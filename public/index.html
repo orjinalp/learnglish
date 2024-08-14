@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Practice</title>
+  <link rel="stylesheet" href="stylesheets/style.css">
+</head>
+
+<body>
+
+  <div class="container">
+    <div class="word" id="word">Loading...</div>
+    <ul class="options" id="options">
+      <!-- Options will be dynamically inserted here -->
+    </ul>
+    <button id="sentence-btn" disabled>✨ Get Example Sentence ✨</button>
+    <div id="sentence"></div>
+    <div id="controls">
+      <button id="previous-btn" disabled>Previous</button>
+      <button id="next-btn">Next Question</button>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      let words = [];
+      let correctOption;
+      let currentQuestionIndex = -1;
+      const answeredQuestions = [];
+
+      const wordElement = document.getElementById('word');
+      const optionsElement = document.getElementById('options');
+      const sentenceBtn = document.getElementById('sentence-btn');
+      const sentenceElement = document.getElementById('sentence');
+      const nextBtn = document.getElementById('next-btn');
+      const previousBtn = document.getElementById('previous-btn');
+
+      function fetchWords() {
+        fetch('http://localhost:3003/words')
+          .then(response => response.json())
+          .then(data => {
+            words = data.words;
+            getNextQuestion();
+            sentenceBtn.disabled = false;
+          })
+          .catch(error => {
+            wordElement.textContent = 'Error loading words';
+            console.error('Error:', error);
+          });
+      }
+
+      function getNextQuestion() {
+        if (currentQuestionIndex < answeredQuestions.length - 1) {
+          currentQuestionIndex++;
+          loadQuestion(answeredQuestions[currentQuestionIndex]);
+        } else {
+          getRandomWord();
+        }
+        updateNavigationButtons();
+      }
+
+      function getPreviousQuestion() {
+        if (currentQuestionIndex > 0) {
+          currentQuestionIndex--;
+          loadQuestion(answeredQuestions[currentQuestionIndex]);
+          updateNavigationButtons();
+        }
+      }
+
+      function getRandomWord() {
+        if (words.length === 0) return;
+        const randomWord = words[Math.floor(Math.random() * words.length)];
+        correctOption = randomWord.TR;
+        wordElement.textContent = randomWord.ENG;
+        const options = generateOptions(randomWord);
+        displayOptions(options);
+        sentenceElement.innerHTML = ''; // Yeni soru geldiğinde eski cümleleri temizle
+        saveCurrentQuestion(randomWord, options, false); // Yanıtlanmamış olarak kaydet
+      }
+
+      function generateOptions(correctWord) {
+        const options = [correctWord.TR];
+        while (options.length < 5) {
+          const randomOption = words[Math.floor(Math.random() * words.length)].TR;
+          if (!options.includes(randomOption)) {
+            options.push(randomOption);
+          }
+        }
+        return options.sort(() => Math.random() - 0.5);
+      }
+
+      function displayOptions(options, isAnswered = false) {
+        optionsElement.innerHTML = '';
+        options.forEach(option => {
+          const li = document.createElement('li');
+          li.textContent = option;
+          li.addEventListener('click', () => checkAnswer(li));
+          optionsElement.appendChild(li);
+        });
+
+        if (isAnswered) {
+          optionsElement.querySelectorAll('li').forEach(option => {
+            option.classList.add('disabled');
+            if (option.textContent === correctOption) {
+              option.classList.add('correct');
+            }
+          });
+        }
+      }
+
+      function checkAnswer(selectedOption) {
+        const options = optionsElement.querySelectorAll('li');
+        options.forEach(option => {
+          option.classList.add('disabled');
+          if (option.textContent === correctOption) {
+            option.classList.add('correct');
+          } else if (option === selectedOption) {
+            option.classList.add('incorrect');
+          }
+        });
+        updateCurrentQuestionAsAnswered();
+      }
+
+      function saveCurrentQuestion(word, options, isAnswered) {
+        const questionData = {
+          word: word,
+          options: options,
+          correctOption: correctOption,
+          isAnswered: isAnswered
+        };
+        answeredQuestions.push(questionData);
+        currentQuestionIndex = answeredQuestions.length - 1;
+        updateNavigationButtons();
+      }
+
+      function updateCurrentQuestionAsAnswered() {
+        answeredQuestions[currentQuestionIndex].isAnswered = true;
+      }
+
+      function loadQuestion(questionData) {
+        wordElement.textContent = questionData.word.ENG;
+        correctOption = questionData.correctOption;
+        displayOptions(questionData.options, questionData.isAnswered);
+      }
+
+      function updateNavigationButtons() {
+        previousBtn.disabled = currentQuestionIndex <= 0;
+      }
+
+      sentenceBtn.addEventListener('click', () => {
+        sentenceBtn.disabled = true; // Butonu devre dışı bırak
+        const loader = document.createElement('div');
+        loader.classList.add('loader');
+        sentenceElement.appendChild(loader); // Yükleme animasyonunu göster
+
+        const word = wordElement.textContent;
+        const timeout = setTimeout(() => {
+          sentenceElement.removeChild(loader);
+          const errorMsg = document.createElement('p');
+          errorMsg.textContent = 'Request timed out. Please try again.';
+          errorMsg.classList.add('sentence-item');
+          sentenceElement.appendChild(errorMsg);
+          sentenceBtn.disabled = false; // Zaman aşımında butonu tekrar etkinleştir
+        }, 10000); // 10 saniyelik zaman aşımı
+
+        fetch('http://localhost:3003/generate-sentence', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ word: word })
+        })
+          .then(response => response.json().then(data => {
+            clearTimeout(timeout); // Zaman aşımı süresini durdur
+            sentenceElement.removeChild(loader); // Yükleme animasyonunu kaldır
+
+            if (response.ok && data.answer) {
+              if (sentenceElement.children.length > 0) {
+                const hr = document.createElement('hr');
+                sentenceElement.appendChild(hr);
+              }
+
+              const sentenceParagraph = document.createElement('p');
+              sentenceParagraph.textContent = data.answer;
+              sentenceParagraph.classList.add('sentence-item');
+              sentenceElement.appendChild(sentenceParagraph);
+            } /* else {
+              const errorMsg = document.createElement('p');
+              errorMsg.textContent = 'No answer available. Please try again.';
+              errorMsg.classList.add('sentence-item');
+              sentenceElement.appendChild(errorMsg);
+            } */
+
+            sentenceBtn.disabled = false; // Yanıt alındığında butonu tekrar etkinleştir
+          }))
+          .catch(error => {
+            clearTimeout(timeout); // Zaman aşımı süresini durdur
+            sentenceElement.removeChild(loader); // Yükleme animasyonunu kaldır
+
+            const errorMsg = document.createElement('p');
+            errorMsg.textContent = 'Error occurred. Please try again.';
+            errorMsg.classList.add('sentence-item');
+            sentenceElement.appendChild(errorMsg);
+
+            sentenceBtn.disabled = false; // Hata durumunda butonu tekrar etkinleştir
+            console.error('Error:', error);
+          });
+      });
+
+      nextBtn.addEventListener('click', () => {
+        getNextQuestion();
+      });
+
+      previousBtn.addEventListener('click', () => {
+        getPreviousQuestion();
+      });
+
+      fetchWords(); // Words'ü sunucudan çek
+    });
+  </script>
+
+</body>
+
+</html>

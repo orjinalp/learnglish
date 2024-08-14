@@ -17,7 +17,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-let apiKey = "";
+let apiKey = process.env.OPENAI_API_KEY;
 
 
 let words = JSON.parse(fs.readFileSync("./public/words.json").toString());

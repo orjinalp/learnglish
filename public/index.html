@@ -6,11 +6,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>English Practice</title>
   <link rel="stylesheet" href="stylesheets/style.css">
+  <style></style>
 </head>
 
 <body>
+  <div id="homepage" class="container">
+    <h1>Welcome to English Practice</h1>
+    <div id="menu">
+      <button id="start-learning-btn">Start Learning</button>
+      <button id="continue-learning-btn">Continue Learning</button>
+      <button id="learned-words-btn">Learned Words</button>
+      <button id="about-us-btn">About Us</button>
+      <button id="clear-memory-btn">Clear Memory</button>
+    </div>
+  </div>
 
-  <div class="container">
+  <div id="confirm-clear-memory" class="container" style="display:none;">
+    <p>Are you sure you want to clear all memory?</p>
+    <button id="confirm-yes-btn">Yes</button>
+    <button id="confirm-no-btn">No</button>
+  </div>
+
+
+  <div id="about-us-popup" class="container" style="display:none;">
+    <div id="top-controls">
+      <button id="close-about-us-btn">Close</button>
+    </div>
+    <h2>About Us</h2>
+    <p>This application uses words sourced from the Harvard Dictionary.</p>
+    <p>Sentence generation is powered by ChatGPT.</p>
+  </div>
+
+  <div id="learned-words-page" class="container" style="display:none;">
+    <div id="top-controls">
+      <button id="back-to-home-btn">Home</button>
+    </div>
+    <h2>Learned Words</h2>
+    <ul id="learned-words-list">
+      <!-- Öğrenilmiş kelimeler burada listelenecek -->
+    </ul>
+  </div>
+
+  <div id="learning-page" class="container" style="display:none;">
+    <div id="top-controls">
+      <button id="back-to-home-btn">Home</button>
+    </div>
     <div class="word" id="word">Loading...</div>
     <ul class="options" id="options">
       <!-- Options will be dynamically inserted here -->
@@ -28,20 +68,149 @@
       let words = [];
       let correctOption;
       let currentQuestionIndex = -1;
-      const answeredQuestions = [];
+      let remainingWords = [];
+      const answeredQuestions = JSON.parse(localStorage.getItem('answeredQuestions')) || [];
 
+      const homepage = document.getElementById('homepage');
+      const learningPage = document.getElementById('learning-page');
       const wordElement = document.getElementById('word');
       const optionsElement = document.getElementById('options');
       const sentenceBtn = document.getElementById('sentence-btn');
       const sentenceElement = document.getElementById('sentence');
       const nextBtn = document.getElementById('next-btn');
       const previousBtn = document.getElementById('previous-btn');
+      const startLearningBtn = document.getElementById('start-learning-btn');
+      const continueLearningBtn = document.getElementById('continue-learning-btn');
+      const backToHomeBtn = document.querySelectorAll('#back-to-home-btn');
+      const aboutUsBtn = document.getElementById('about-us-btn');
+
+      const learnedWordsBtn = document.getElementById('learned-words-btn');
+      const learnedWordsPage = document.getElementById('learned-words-page');
+      const learnedWordsList = document.getElementById('learned-words-list');
+      const aboutUsPopup = document.getElementById('about-us-popup');
+      const closeAboutUsBtn = document.getElementById('close-about-us-btn');
+
+      const clearMemoryBtn = document.getElementById('clear-memory-btn');
+      const confirmClearMemory = document.getElementById('confirm-clear-memory');
+      const confirmYesBtn = document.getElementById('confirm-yes-btn');
+      const confirmNoBtn = document.getElementById('confirm-no-btn');
+
+      clearMemoryBtn.addEventListener('click', () => {
+        confirmClearMemory.style.display = 'block';
+      });
+
+      confirmYesBtn.addEventListener('click', () => {
+        localStorage.clear();
+        confirmClearMemory.style.display = 'none';
+        location.reload();
+        // İsterseniz ana sayfaya dönebilirsiniz:
+        // goToHomepage();
+      });
+
+      confirmNoBtn.addEventListener('click', () => {
+        confirmClearMemory.style.display = 'none';
+      });
+
+
+      aboutUsBtn.addEventListener('click', () => {
+        homepage.style.display = 'none';
+        learnedWordsPage.style.display = 'none';
+        learningPage.style.display = 'none';
+        aboutUsPopup.style.display = 'block';
+      });
+
+      closeAboutUsBtn.addEventListener('click', () => {
+        aboutUsPopup.style.display = 'none';
+        homepage.style.display = 'block';
+      });
+      learnedWordsBtn.addEventListener('click', () => {
+        showLearnedWords();
+      });
+
+      function showLearnedWords() {
+        homepage.style.display = 'none';
+        learningPage.style.display = 'none';
+        learnedWordsPage.style.display = 'block';
+        loadLearnedWords();
+      }
+
+      function loadLearnedWords() {
+        learnedWordsList.innerHTML = ''; // Listeyi temizle
+
+        answeredQuestions.forEach(question => {
+          if (question.isAnswered) {
+            const li = document.createElement('li');
+            li.textContent = `${question.word.ENG} - ${question.correctOption}`;
+            learnedWordsList.appendChild(li);
+          }
+        });
+      }
+
+      backToHomeBtn.forEach(btn => {
+        btn.addEventListener('click', () => {
+          goToHomepage();
+        });
+      });
+
+      startLearningBtn.addEventListener('click', () => {
+        startLearning();
+      });
+
+      continueLearningBtn.addEventListener('click', () => {
+        continueLearning();
+      });
+
+
+      function startLearning() {
+        answeredQuestions.length = 0; // Reset the answered questions
+        localStorage.removeItem('answeredQuestions'); // Clear storage
+        goToLearningPage();
+        fetchWords();
+      }
+
+      function continueLearning() {
+        // Yanıtlanmış kelimeleri filtreleyelim
+        filterRemainingWords();
+
+        if (remainingWords.length > 0) {
+          goToLearningPage();
+          getNextQuestion();
+        } else if (answeredQuestions.length > 0) {
+          startLearning(); // Eğer yanıtlanmamış kelime kalmadıysa baştan başlatmak daha iyi olabilir
+        } else {
+          startLearning();
+        }
+      }
+
+      function goToLearningPage() {
+        homepage.style.display = 'none';
+        learnedWordsPage.style.display = 'none';
+        learningPage.style.display = 'block';
+      }
+
+      function goToHomepage() {
+        learningPage.style.display = 'none';
+        learnedWordsPage.style.display = 'none';
+        homepage.style.display = 'block';
+        updateButtons();
+      }
+
+      function updateButtons() {
+        if (answeredQuestions.length > 0 || remainingWords.length > 0) {
+          startLearningBtn.style.display = 'none';
+          continueLearningBtn.style.display = 'inline-block';
+        } else {
+          startLearningBtn.style.display = 'inline-block';
+          continueLearningBtn.style.display = 'none';
+        }
+      }
 
       function fetchWords() {
         fetch('/words')
           .then(response => response.json())
           .then(data => {
             words = data.words;
+            filterRemainingWords();
             getNextQuestion();
             sentenceBtn.disabled = false;
           })
@@ -51,10 +220,21 @@
           });
       }
 
+      function filterRemainingWords() {
+        const answeredWordIds = answeredQuestions.map(q => q.word.ENG);
+        remainingWords = words.filter(word => !answeredWordIds.includes(word.ENG));
+      }
+
       function getNextQuestion() {
         if (currentQuestionIndex < answeredQuestions.length - 1) {
           currentQuestionIndex++;
-          loadQuestion(answeredQuestions[currentQuestionIndex]);
+          const nextQuestion = answeredQuestions[currentQuestionIndex];
+          // Eğer soru daha önce yanıtlandıysa tekrar sorma
+          if (!nextQuestion.isAnswered) {
+            loadQuestion(nextQuestion);
+          } else {
+            getNextQuestion(); // Eğer soru daha önce yanıtlandıysa bir sonraki soruya geç
+          }
         } else {
           getRandomWord();
         }
@@ -70,8 +250,8 @@
       }
 
       function getRandomWord() {
-        if (words.length === 0) return;
-        const randomWord = words[Math.floor(Math.random() * words.length)];
+        if (remainingWords.length === 0) return;
+        const randomWord = remainingWords[Math.floor(Math.random() * remainingWords.length)];
         correctOption = randomWord.TR;
         wordElement.textContent = randomWord.ENG;
         const options = generateOptions(randomWord);
@@ -132,12 +312,15 @@
           sentences: sentences
         };
         answeredQuestions.push(questionData);
+        remainingWords = remainingWords.filter(w => w.ENG !== word.ENG); // Remove the word from remaining list
         currentQuestionIndex = answeredQuestions.length - 1;
+        localStorage.setItem('answeredQuestions', JSON.stringify(answeredQuestions));
         updateNavigationButtons();
       }
 
       function updateCurrentQuestionAsAnswered() {
         answeredQuestions[currentQuestionIndex].isAnswered = true;
+        localStorage.setItem('answeredQuestions', JSON.stringify(answeredQuestions));
       }
 
       function loadQuestion(questionData) {
@@ -199,6 +382,7 @@
 
               // Cümleyi şu anki sorunun cümleler listesine ekleyelim
               answeredQuestions[currentQuestionIndex].sentences.push(data.answer);
+              localStorage.setItem('answeredQuestions', JSON.stringify(answeredQuestions));
             }
 
             sentenceBtn.disabled = false; // Yanıt alındığında butonu tekrar etkinleştir
@@ -225,10 +409,10 @@
         getPreviousQuestion();
       });
 
-      fetchWords(); // Words'ü sunucudan çek
+      // Initial setup
+      updateButtons();
     });
   </script>
-
 </body>
 
 </html>

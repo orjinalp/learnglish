@@ -38,7 +38,7 @@
       const previousBtn = document.getElementById('previous-btn');
 
       function fetchWords() {
-        fetch('http://localhost:3003/words')
+        fetch('/words')
           .then(response => response.json())
           .then(data => {
             words = data.words;
@@ -165,7 +165,7 @@
           sentenceBtn.disabled = false; // Zaman aşımında butonu tekrar etkinleştir
         }, 10000); // 10 saniyelik zaman aşımı
 
-        fetch('http://localhost:3003/generate-sentence', {
+        fetch('/generate-sentence', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

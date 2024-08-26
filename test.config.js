@@ -4,7 +4,7 @@ module.exports = {
     script: "./app.js",
     cwd: "./",
     env: {
-      PORT: "3003"
+      PORT: "3004"
     }
   }]
 }
